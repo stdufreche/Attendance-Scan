@@ -1,6 +1,6 @@
 ﻿;###################### BarcodeAttendance.ahk ###########################
 
-Global version := "0.28.1"
+Global version := "1.0.0"
 #SingleInstance Force
 #NoEnv
 SetWorkingDir %A_ScriptDir%
