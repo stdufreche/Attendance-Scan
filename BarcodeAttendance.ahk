@@ -1,22 +1,7 @@
 ﻿;###################### BarcodeAttendance.ahk ###########################
 ; 09/05/25
-; A multi-tool solution for logging student IDs into Google Sheets.
-; v.28 Initial git commit
-; v.27 Add option for OSD during scans
-; v.26 Add command-line arguments for commwrapper
-; v.25 Remove 2nd comm port
-; v.24 Code cleanup and refactor
-; v.23 Increase scanning speed and buffer
-; v.21 Refactor comm loop for speed and decreased error rate
-; v.20 Addition of second comm port
-; v.19 Addition of scan type
-; v.18 Optimization of BT API
-; v.17 Addition of BT API for connection testing
-; v.16 Optimization of RS232 timing
-; v.14 Thread priority for continuous scanning
-; v.11 Organization of code
-; v.10 Initial Work on caching
-static version := "0.79.0-git"
+
+static version := "1.0.0"
 #SingleInstance Force
 #NoEnv
 SetWorkingDir %A_ScriptDir%
