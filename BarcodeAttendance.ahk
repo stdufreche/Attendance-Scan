@@ -35,7 +35,7 @@ localVersion := StrSplit(version, ".")
 ;Check Major/Minor/Patch version numbers
 Loop, 3
     {
-        IF (currentVersion[A_INDEX-1]>localVersion[A_INDEX-1]) {
+        IF (currentVersion[A_INDEX]>localVersion[A_INDEX]) {
             UpdateURL=https://github.com/stdufreche/Attendance-Scan/releases
             Break
         } 
