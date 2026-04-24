@@ -1,7 +1,6 @@
 ﻿;###################### BarcodeAttendance.ahk ###########################
-; 09/05/25
 
-Global version := "1.0.0"
+Global version := "0.28.1"
 #SingleInstance Force
 #NoEnv
 SetWorkingDir %A_ScriptDir%
@@ -23,20 +22,24 @@ DebugOutput(Level, Var1:="", Var2:="", Var3:="", Var4:="", Var5:="", Var6:="", V
 ;###### VERSION AND ENVIRONMENT CONTROL #################################
 ;########################################################################
 {
+UpdateURL:=False
+
 oHttp := ComObjCreate("WinHttp.Winhttprequest.5.1")
-httpBase=https://script.google.com/macros/s/AKfycbwlAPQz0HHwVU8qv_xnlVgEcEsdEkVPz-KkdIQ9Q9UStmaIgn-_C8kNvIX9BLtlKlmWVg/exec
-httpsend=%httpBase%?Name=AttendanceScan&Version=%version%
-;MsgBox %httpsend%
+httpsend=https://raw.githubusercontent.com/stdufreche/Attendance-Scan/refs/heads/main/version
 oHttp.open("GET",httpsend)
 oHttp.send()
-IF (oHttp.responseText!="1") {
-    UpdateURL:=oHttp.responseText
-    ;MsgBox New version is available. Please download at %UpdateURL%
-} 
-Else
-{
-UpdateURL:=False
-}
+
+currentVersion := StrSplit(oHttp.responseText, ".")
+localVersion := StrSplit(version, ".")
+
+;Check Major/Minor/Patch version numbers
+Loop, 3
+    {
+        IF (currentVersion[A_INDEX-1]>localVersion[A_INDEX-1]) {
+            UpdateURL=https://github.com/stdufreche/Attendance-Scan/releases
+            Break
+        } 
+    }
 
 ;Check for existing configuration file and generate new if not found
 cfgFile := FileOpen("LHScfg.ini", "r")
