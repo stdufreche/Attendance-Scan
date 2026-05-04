@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <style>
+      body { font-family: sans-serif; }
+      input[type="date"] { padding: 5px; margin-bottom: 10px; }
+      button { padding: 8px 15px; cursor: pointer; }
+    </style>
+  </head>
+  <body>
+    <h2>Enter Date</h2>
+    <label for="inputDate">Select a date:</label><br>
+    <input type="date" id="inputDate" name="inputDate"><br><br>
+    <button onclick="google.script.run.withSuccessHandler(google.script.host.close).processDate(document.getElementById('inputDate').value)">Submit</button>
+    <button onclick="google.script.host.close()">Cancel</button>
+  </body>
+</html>
