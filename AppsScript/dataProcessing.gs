@@ -8,26 +8,29 @@ function processMultiScan(e) {
     const data = e.parameters;
     
     var sheetScanLog = sheet.getSheetByName('Attendance Log');
+    var sheetConfig = sheet.getSheetByName('Config');
+    var currentConfig = sheetConfig.getRange(1,1,sheetConfig.getLastRow(),sheetConfig.getLastColumn()).getValues();
     var scanValues = [];
-    
-    for (const key in data) {
+    var scanPeriod = [];
+
+    for (const key in data) { // Loop through all Time-SIDNO data pairs
       console.log('Key: %s, Value: %s', key, data[key]);
-
       var scanDateTime = new Date(key);
+      var studentName = RosterRecall.getStudentBySIDNO(sheetID, data[key]); // Pull names from master roster through RosterRecall library
 
-      var studentName = RosterRecall.getStudentBySIDNO(sheetID, data[key]);
-
-      if (key != "tripType")
-        scanValues.push([scanDateTime.toLocaleString(),studentName[1],data[key],"=IFS(TIMEVALUE(R[0]C[-3])<TIMEVALUE(Config!C$2), 1, TIMEVALUE(R[0]C[-3])<TIMEVALUE(Config!C$3), 2, TIMEVALUE(R[0]C[-3])<TIMEVALUE(Config!C$4), 3, TIMEVALUE(R[0]C[-3])<TIMEVALUE(Config!C$5), 4, TIMEVALUE(R[0]C[-3])<TIMEVALUE(Config!C$6), 5, TIMEVALUE(R[0]C[-3])<TIMEVALUE(Config!C$7), 6, TIMEVALUE(R[0]C[-3])<TIMEVALUE(Config!C$8), 7, TIMEVALUE(R[0]C[-3])<TIMEVALUE(Config!C$9), 8, true, 9)",tripType]);
+      if (key != "tripType") { // Process if not tripType parameter
+        scanPeriod = GetScanPeriod(currentConfig, scanDateTime);
+        scanValues.push([scanDateTime.toLocaleString(),studentName[1],data[key],scanPeriod[0],tripType,scanPeriod[1]]);
+      }
     }
   } 
   catch (err)
   {
-    Logger.log('Failed with error %s', err.message);
+    console.log('Failed with error %s', err.message);
     return ContentService.createTextOutput("processMultScan Failed: " + err);
   }
 
-  currentValueRange = sheetScanLog.getRange(sheetScanLog.getLastRow()+1,1,scanValues.length,5);
+  currentValueRange = sheetScanLog.getRange(sheetScanLog.getLastRow()+1,1,scanValues.length,6);
   currentValueRange.setValues(scanValues);
 
   return ContentService.createTextOutput("processMultScan: " + scanValues);
@@ -40,6 +43,8 @@ function processTrip(e)
   const sheet = SpreadsheetApp.getActive();
   const sheetID = sheet.getId();
   var sheetScanLog = sheet.getSheetByName('Trip Log');
+  var sheetConfig = sheet.getSheetByName('Config');
+  var currentConfig = sheetConfig.getRange(1,1,sheetConfig.getLastRow(),sheetConfig.getLastColumn()).getValues();
   var scanSIDNO = parseInt(e.parameter.SIDNO);
   var scanDateTime = new Date();
 
@@ -48,19 +53,17 @@ function processTrip(e)
 
   var studentName = RosterRecall.getStudentBySIDNO(sheetID, scanSIDNO);
   var scanValues = [];
-
-  //Set and format data export matrix from WebAp
-  scanValues.push([scanDateTime.toLocaleString(),studentName[1],"","",scanSIDNO,"=IFS(TIMEVALUE(R[0]C[-5])<TIMEVALUE(Config!C$2), 1, TIMEVALUE(R[0]C[-5])<TIMEVALUE(Config!C$3), 2, TIMEVALUE(R[0]C[-5])<TIMEVALUE(Config!C$4), 3, TIMEVALUE(R[0]C[-5])<TIMEVALUE(Config!C$5), 4, TIMEVALUE(R[0]C[-5])<TIMEVALUE(Config!C$6), 5, TIMEVALUE(R[0]C[-5])<TIMEVALUE(Config!C$7), 6, TIMEVALUE(R[0]C[-5])<TIMEVALUE(Config!C$8), 7, true, 8)",e.parameter.tripType]);
+  var scanPeriod = [];
 
   //Pull in previous 30 rows of scan history
   var prevScanValues = sheetScanLog.getRange(2, 1, 50, 6).getValues();
 
   //Loop to cycle through previous scan history and match SIDNO
   for (var r = 0; r<30; r++) {
-    if (prevScanValues[r][4] == scanValues[0][4]) {
-      var deltaTime = (Date.parse(scanValues[0][0])-Date.parse(prevScanValues[r][0]));
+    if (prevScanValues[r][4] == scanSIDNO) {
+      var deltaTime = (Date.parse(scanDateTime.toLocaleString())-Date.parse(prevScanValues[r][0]));
       if (prevScanValues[r][2]=='' && deltaTime<3600000){
-        var deltaValues = [['=TIMEVALUE(R[0]C[1])-TIMEVALUE(R[0]C[-2])',scanValues[0]]];
+        var deltaValues = [['=TIMEVALUE(R[0]C[1])-TIMEVALUE(R[0]C[-2])',scanDateTime.toLocaleString()]];
         var deltaValueRange = sheetScanLog.getRange(2+r,3,1,2);
         deltaValueRange.setValues(deltaValues);
         return ContentService.createTextOutput("Checked In");
@@ -68,6 +71,11 @@ function processTrip(e)
       break;
     };
   };
+
+  scanPeriod = GetScanPeriod(currentConfig, scanDateTime);
+
+  //Set and format data export matrix from WebApp
+  scanValues.push([scanDateTime.toLocaleString(),studentName[1],"","",scanSIDNO,scanPeriod[0],e.parameter.tripType]);
 
   //Move existing data down by 1 row and write new values
   sheetScanLog.insertRowBefore(2);
@@ -105,7 +113,7 @@ function addWeek(selectedDate)
       var periodOffset = sheetPeriod + 1;
       for (var j=0; j<5; j++) 
       {
-        formulaTemp[j] = "=if(DATEVALUE(R["+ rowOffset +"]C[0])<=TODAY(), ifs(IFNA(ROWS(FILTER(\'Attendance Log\'!$A:$D,DATEVALUE(\'Attendance Log\'!$A:$A)=DATEVALUE(R["+ rowOffset +"]C[0]),\'Attendance Log\'!$C:$C=$B"+currentRow+",\'Attendance Log\'!$D:$D=$C$1,TIMEVALUE(\'Attendance Log\'!$A:$A)<TIMEVALUE(Config!$D$"+periodOffset+"))))>0,\"P\",IFNA(ROWS(FILTER(\'Attendance Log\'!$A:$D,DATEVALUE(\'Attendance Log\'!$A:$A)=DATEVALUE(R["+ rowOffset +"]C[0]),\'Attendance Log\'!$C:$C=$B"+currentRow+",\'Attendance Log\'!$D:$D=$C$1,TIMEVALUE(\'Attendance Log\'!$A:$A)>TIMEVALUE(Config!$D$"+periodOffset+"))))>0,\"T\", 1,\"U\"), \"\")";
+        formulaTemp[j] = "=if(DATEVALUE(R["+ rowOffset +"]C[0])<=TODAY(), ifs(IFNA(ROWS(FILTER(\'Attendance Log\'!$A:$F,DATEVALUE(\'Attendance Log\'!$A:$A)=DATEVALUE(R["+ rowOffset +"]C[0]),\'Attendance Log\'!$C:$C=$B"+currentRow+",\'Attendance Log\'!$D:$D=$C$1,\'Attendance Log\'!$F:$F>0)))>0,\"T\",IFNA(ROWS(FILTER(\'Attendance Log\'!$A:$D,DATEVALUE(\'Attendance Log\'!$A:$A)=DATEVALUE(R["+ rowOffset +"]C[0]),\'Attendance Log\'!$C:$C=$B"+currentRow+",\'Attendance Log\'!$D:$D=$C$1)))>0,\"P\", 1,\"U\"), \"\")";
       }
       formulaValues.push([formulaTemp[0],formulaTemp[1],formulaTemp[2],formulaTemp[3],formulaTemp[4]]);
     }
@@ -117,14 +125,16 @@ function addWeek(selectedDate)
 
 }
 
-function showDateInputDialog() {
+function showDateInputDialog() 
+{
   var htmlOutput = HtmlService.createHtmlOutputFromFile('DateDialog')
       .setWidth(300)
       .setHeight(200);
   SpreadsheetApp.getUi().showModalDialog(htmlOutput, 'Enter Date');
 }
 
-function processDate(dateString) {
+function processDate(dateString) 
+{
   if (dateString) {
     Logger.log("Date String: " + dateString);
     addWeek(dateString);
@@ -132,6 +142,39 @@ function processDate(dateString) {
     Logger.log('No date was selected.');
   }
 }
+
+function GetScanPeriod(currentConfig, scanDateTime) {
+    const dimensions = [ currentConfig.length, currentConfig[0].length ];
+    Logger.log(currentConfig);
+    var schedule = currentConfig[0][3];
+    Logger.log(schedule);
+
+    for (var i = 0; i<dimensions[0]; i++) {
+      Logger.log("currentConfig["+ i + "][0]: " + currentConfig[i][0]);
+      if (currentConfig[i][0] == schedule) {
+        var scheduleStart = i;
+        Logger.log("Schedule Found: " + schedule + " (Row " + i + ")");
+        break;
+      }
+    }
+
+    for (var i = scheduleStart+1; i<scheduleStart+9; i++) {
+      Logger.log(i + " CurrentTime: " + scanDateTime + " " + scanDateTime.getHours() + ":" + scanDateTime.getMinutes() + " ConfigTime: " + currentConfig[i][3] + " " + currentConfig[i][3].getHours() + ":" + currentConfig[i][3].getMinutes());
+      var configTime = currentConfig[i][3].getHours() + currentConfig[i][3].getMinutes()/60;
+      var tardyTime = currentConfig[i][4].getHours() + currentConfig[i][4].getMinutes()/60;
+      var scanTime = scanDateTime.getHours() + scanDateTime.getMinutes()/60;
+      Logger.log("configTime: " + configTime + " tardyTime: " + " scanTime: " + scanTime);
+      if (scanTime <= configTime) {
+        Logger.log("timehit");
+        var tardyDuration = scanTime - tardyTime;
+        var scanPeriod = [currentConfig[i][1], tardyDuration];
+        Logger.log(scanPeriod);
+        break;
+      }
+    }
+  return scanPeriod;
+}
+
 
 function formatAll() {
   var spreadsheet = SpreadsheetApp.getActive();
@@ -149,3 +192,10 @@ function formatAll() {
   logsheet.getRange('F:F').setNumberFormat('@');
   logsheet.getRange('G:G').setNumberFormat('@');
 };
+
+function TestFunction() {
+  var scanDateTime = new Date("05/07/2026 10:41:29 AM");
+  const sheet = SpreadsheetApp.getActive();
+  var output = GetScanPeriod(scanDateTime, sheet);
+  Logger.log(output);
+}
